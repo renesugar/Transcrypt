@@ -8,19 +8,6 @@ import time as _time
 import math as _math
 from org.transcrypt.stubs.browser import __envir__
 
-
-if __envir__.executor_name == __envir__.transpiler_name:
-    # functions not imlemented in transcrypt
-    def divmod(n, d):
-        return n // d, n % d
-
-    def modf(n):
-        sign = 1 if n >= 0 else -1
-        f, mod = divmod(abs(n), 1)
-        return mod * sign, f * sign
-    _math.modf = modf
-
-
 def zfill(s, c):
     s = str(s)
     if len(s) < c:
@@ -489,15 +476,15 @@ class timedelta:
 
     def __repr__(self):
         if self._microseconds:
-            return "datetime.timedelta({}, {}, {})".format(
+            return "datetime.timedelta(days={}, seconds={}, microseconds={})".format(
                                           self._days,
                                           self._seconds,
                                           self._microseconds)
         if self._seconds:
-            return "datetime.timedelta({}, {})".format(
+            return "datetime.timedelta(days={}, seconds={})".format(
                                       self._days,
                                       self._seconds)
-        return "datetime.timedelta({})".format(self._days)
+        return "datetime.timedelta(days={})".format(self._days)
 
     def __str__(self):
         mm, ss = divmod(self._seconds, 60)

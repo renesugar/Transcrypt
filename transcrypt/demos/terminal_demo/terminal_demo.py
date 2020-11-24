@@ -1,5 +1,5 @@
 while True:
-    name = input ('What''s your name? (leave blank to quit)')
+    name = input ('What''s your name? ')
     
     if name == '':
         break;

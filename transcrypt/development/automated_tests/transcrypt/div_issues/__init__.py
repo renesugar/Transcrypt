@@ -1,9 +1,12 @@
 from org.transcrypt.stubs.browser import __pragma__, __new__, __envir__, __symbols__
 
 from div_issues.issue55 import *        # Names not exported from package's __init__.py, no output, only compilation check
-from div_issues.issue387 import run387       # Support __module__ and __qualname__ for introspection (only __module__ done and
+from div_issues.issue387 import run387  # Support __module__ and __qualname__ for introspection (only __module__ done and
                                         # __name__ set to '__main__ for main module'
+from div_issues.issue559 import run559  # Imported names not reexported form the __init__.py of a module
 
+import re
+                           
 def run (autoTester):
     autoTester.check ('Issue 24')   # Non keyword switch generates javascript SyntaxError
     switch = False
@@ -88,27 +91,22 @@ def run (autoTester):
         for i in x:
             autoTester.check (i)
         
-        # Since JavaScript 5 gives no exception for a loop over a non-iterable, following code must only be executed for JavaScript 6
-        # Since Transcrypt doesn't get to see all modules loaded by CPython, __ifdef__ cannot be made to do its thing for all modules in an efficient way for CPython
-        # But a normal 'if' will work
-        if '__esv6__' in __symbols__:
-            y = 3
-            for j in y:
-                autoTester.check (j)
+        y = 3
+        for j in y:
+            autoTester.check (j)
             
     except: # No 'Exception' can be used behind this, since this is a JavaScript exception, and no subclass of Exception. ??? How desirable is this behaviour?
         pass
         # autoTester.check ('Detected iterating over non-iterable') # Minifier masks this exception, so we'll have to pass
         
-    if '__esv6__' in __symbols__:   # "if" rather than "__pragma__ ('ifdef')" because CPython doesn't understand pragma's
-        autoTester.check ('Issue 122')  # Problem with yield (or rather with slicing beyond list end)
-        
-        def chunks (aList, chunkLength):
-            for index in range (0, len (aList), chunkLength):
-                yield aList [index : index + chunkLength]
+    autoTester.check ('Issue 122')  # Problem with yield (or rather with slicing beyond list end)
+    
+    def chunks (aList, chunkLength):
+        for index in range (0, len (aList), chunkLength):
+            yield aList [index : index + chunkLength]
 
-        for chunk in chunks ([chr (index + 97) for index in range (26)], 10):
-            autoTester.check (chunk)
+    for chunk in chunks ([chr (index + 97) for index in range (26)], 10):
+        autoTester.check (chunk)
 
     autoTester.check ('Issue 123')  # Python % shouldn't behave like JS %
     autoTester.check (10 % 3, 10 % -3, -10 % 3, -10 % -3, 10 % 10, 10 % -10, -10 % 10, -10 % -10)
@@ -341,30 +339,28 @@ def run (autoTester):
     except TypeError as exception:
         autoTester.check (exception)
         
-    #__pragma__ ('ifdef', '__esv6__')   # Needed because Transcrypt imports are compile time
-    if '__esv6__' in __symbols__:      # Needed because CPython doesn't understand pragma's
-        autoTester.check ('Issue 369')
-        
-        class Vector:
-            def __init__ (self, *values):
-                self.values = values
+    autoTester.check ('Issue 369')
+    
+    class Vector:
+        def __init__ (self, *values):
+            self.values = values
 
-            def __iter__ (self):
-                for item in self.values:
-                    yield item
+        def __iter__ (self):
+            for item in self.values:
+                yield item
 
-            def __add__(self, other):
-                return Vector (* (x + y for x, y in zip (self, other)))
-                
-            def __str__ (self):
-                return str (list (self.values))
+        def __add__(self, other):
+            return Vector (* (x + y for x, y in zip (self, other)))
             
-        #__pragma__ ('opov')
+        def __str__ (self):
+            return str (list (self.values))
+        
+    #__pragma__ ('opov')
 
-        autoTester.check (str (Vector (1,2,3) + Vector (3,4,5)))
+    autoTester.check (str (Vector (1,2,3) + Vector (3,4,5)))
 
-        #__pragma__ ('noopov')
-    #__pragma__ ('endif')
+    #__pragma__ ('noopov')
+
     
     autoTester.check ('Issue 387')
     run387 (autoTester)
@@ -376,8 +372,6 @@ def run (autoTester):
     autoTester.check (int (1 != 2))
     
     autoTester.check ('Issue 392')
-
-    import re
 
     class Example:
 
@@ -533,6 +527,29 @@ def run (autoTester):
         autoTester.check (c)        #__:noopov
 
     #__pragma__ ('noopov')
-
     
-            
+    autoTester.check ('Issue 494')  # {None} in formatted string gets converted to {}
+    
+    # Worked, should still work
+    a = 1
+    autoTester.check (f'a={a}')
+
+    # Failed, should now work
+    a = None
+    autoTester.check (f'a={a}')
+    
+    autoTester.check ('Issue 515')  # Method format() is failing to replace the replacement fields if the value is None
+    
+    autoTester.check('a: {}; b: {}'.format(None, 1))
+    autoTester.check('a: {}; b: {}'.format(1, None))
+    autoTester.check('a: {0}; b: {1}'.format(1, None))
+    autoTester.check('a: {0}; b: {1}'.format(1, []))
+    autoTester.check('a: {}; b: {}'.format(1, []))
+    autoTester.check('a: {0}; b: {1}'.format(1, {}))
+    autoTester.check('a: {}; b: {}'.format(1, {}))
+    autoTester.check('a: {0}; b: {1}'.format(1, 0))
+    autoTester.check('a: {}; b: {}'.format(1, 0))
+    
+    autoTester.check ('Issue 559')  # Reexport everything imported, e.g. by the __init__.py of a module
+    run559 (autoTester)
+    

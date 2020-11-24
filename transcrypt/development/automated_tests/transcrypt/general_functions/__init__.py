@@ -79,23 +79,21 @@ def run (autoTester):
     autoTester.check (list4, any (list4), all (list4))
     
     autoTester.check (sum (range (5)))
-    
-    __pragma__ ('ifdef', '__esv6__')
-    if '__esv6__' in autoTester.symbols:    
-        def generator1 ():
-            for i in range (5):
+      
+    def generator1 ():
+        for i in range (5):
+            yield i;
+            
+    def generator2 ():
+        for i in range (5):
+            if i % 2:
+                yield 0
+            else:
                 yield i;
                 
-        def generator2 ():
-            for i in range (5):
-                if i % 2:
-                    yield 0
-                else:
-                    yield i;
-                    
-        def generator3 ():
-            for i in range (5):
-                yield 0;
+    def generator3 ():
+        for i in range (5):
+            yield 0;
                 
         autoTester.check (generator1 (), any (generator1 ()), all (generator1 ()))
         autoTester.check (generator2 (), any (generator2 ()), all (generator2 ()))

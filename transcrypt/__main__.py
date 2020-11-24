@@ -20,6 +20,7 @@ import traceback
 import site
 import atexit
 import webbrowser
+import tokenize
 
 transpilerDir = os.path.dirname (os.path.abspath (__file__)) .replace ('\\', '/')   # Set of Transcrypt itself
 modulesDir = '{}/modules'.format (transpilerDir)                                    # Set dir of Transcrypt-only modules
@@ -42,16 +43,24 @@ except:
 sys.modules.pop ('org', None)   
 
 # Transcrypt needs to find modulesDir before CPython modules, so it will favor Transcrypt modules
-transpilationDirs = [modulesDir] + sys.path
+candidateTranspilationDirs = [modulesDir] + sys.path
+lowerSkipExtensions = ('.zip', '/dlls', '/lib', '/python37')    # !!! Generalize to all platforms and Python versions
 
-# The following imports are need by Transcryp itself, not by transpiled or executed user code
+transpilationDirs = []
+for candidateTranspilationDir in candidateTranspilationDirs:
+    # print ('DEBUG', candidateTranspilationDir)
+    for lowerSkipExtension in lowerSkipExtensions:
+        if candidateTranspilationDir.lower () .endswith (lowerSkipExtension):
+            break
+    else:
+        transpilationDirs.append (candidateTranspilationDir)
+
+# The following imports are need by Transcrypt itself, not by transpiled or executed user code
 # The following imports will either reload the previously unloaded org or load org from different location
 # CPython needs to find modulesDir after CPython modules, so it will favor CPython modules
-sys.path.append (modulesDir)        
-from org.transcrypt import __base__                 
+sys.path.append (modulesDir)      
 from org.transcrypt import utils
 from org.transcrypt import compiler
-
 exitCodeNames = ('exitSuccess', 'exitCommandArgsError', 'exitNoLicense', 'exitSourceNotGiven', 'exitCannotRunSource', 'exitSpecificCompileError', 'exitGeneralCompileError')
 
 for exitCode, exitCodeName in enumerate (exitCodeNames):
@@ -62,9 +71,9 @@ def main ():
 
     def exitHandler ():
         if exitCode == exitSuccess:
-            utils.log (True, '\nReady\n')       
+            utils.log (True, '\nReady\n\n')       
         else:
-            utils.log (True, '\nAborted\n')
+            utils.log (True, '\nAborted\n\n')
             
     atexit.register (exitHandler)
     
@@ -74,15 +83,20 @@ def main ():
         return exitCode
     
     try:
+        __envir__ = utils.Any ()
+        with tokenize.open (f'{modulesDir}/org/transcrypt/__envir__.js') as envirFile:
+            exec (envirFile.read ());
+        __envir__.executor_name = __envir__.interpreter_name
+
+        utils.log (True, '\n{} (TM) Python to JavaScript Small Sane Subset Transpiler Version {}\n', __envir__.transpiler_name.capitalize (), __envir__.transpiler_version)
+        utils.log (True, 'Copyright (C) Geatec Engineering. License: Apache 2.0\n\n')
+        
         utils.log (True, '\n')
         licensePath = '{}/{}'.format (transpilerDir, 'license_reference.txt')   
         if not os.path.isfile (licensePath):
             utils.log (True, 'Error: missing license reference file\n')
             return setExitCode (exitNoLicense)
             
-        utils.log (True, '{} (TM) Python to JavaScript Small Sane Subset Transpiler Version {}\n', __base__.__envir__.transpiler_name.capitalize (), __base__.__envir__.transpiler_version)
-        utils.log (True, 'Copyright (C) Geatec Engineering. License: Apache 2.0\n\n')
-        
         utils.commandArgs.parse ()
         
         if utils.commandArgs.license:
@@ -97,6 +111,10 @@ def main ():
             
         if not utils.commandArgs.source:
             return setExitCode (exitSourceNotGiven) # Should never be here, dealth with by command arg checks already
+            
+        if utils.commandArgs.source.endswith ('.py') or utils.commandArgs.source.endswith ('.js'):
+            utils.commandArgs.source = utils.commandArgs.source [:-3]   # Ignore extension
+            # This may be done in a more concise way, but it runs deeper than it may seem, so test any changes extensively
         
         # Prepend paths that are needed by transpiled or executed user code, since they have to be searched first
         # So user code favors Transcrypt modules over CPython modules
@@ -116,12 +134,6 @@ def main ():
         transpilationDirs [0 : 0] = projectDirs 
                        
         __symbols__ = utils.commandArgs.symbols.split ('$') if utils.commandArgs.symbols else []
-        
-        if utils.commandArgs.unit:
-            if '.run' in utils.commandArgs.unit:
-                __symbols__.append ('__runit__')
-            elif '.com' in utils.commandArgs.unit:
-                __symbols__.append ('__cunit__')
             
         if utils.commandArgs.complex:
             __symbols__.append ('__complex__')
@@ -147,7 +159,7 @@ def main ():
         
         if utils.commandArgs.run:
             try:
-                with open (utils.commandArgs.source) as sourceFile:
+                with open (utils.commandArgs.source + '.py') as sourceFile:
                     exec (sourceFile.read (), globals (), locals ())
                     return setExitCode (exitSuccess)
             except Exception as exception:
@@ -156,7 +168,7 @@ def main ():
                 return setExitCode (exitCannotRunSource)
         else:
             try:
-                compiler.Program (transpilationDirs, modulesDir, __symbols__)
+                compiler.Program (transpilationDirs, __symbols__, __envir__)
                 return setExitCode (exitSuccess)
             except utils.Error as error:
                 utils.log (True, '\n{}\n', error)
